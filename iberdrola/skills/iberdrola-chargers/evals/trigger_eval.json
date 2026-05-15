@@ -1,0 +1,82 @@
+[
+  {
+    "query": "warn me when chargers 6760 and 6761 become free, im at a cafe nearby and want to jump on as soon as one opens up",
+    "should_trigger": true
+  },
+  {
+    "query": "is the cargador on calle mussola 44 free right now? im stuck at 12% battery",
+    "should_trigger": true
+  },
+  {
+    "query": "find me the free chargers within 2km of 38.84, 0.10 — ideally the municipal ones at 0 eur/kWh",
+    "should_trigger": true
+  },
+  {
+    "query": "show me iberdrola puntos de recarga around denia centre, sorted by distance",
+    "should_trigger": true
+  },
+  {
+    "query": "i parked the ioniq near plaza del marquesado in denia, which iberdrola post is closest and is it free?",
+    "should_trigger": true
+  },
+  {
+    "query": "ping me when the ronda de las murallas chargers come available, doesnt matter which one of the two pedestals",
+    "should_trigger": true
+  },
+  {
+    "query": "can you check the live status of cuprId 98482? per-connector if possible",
+    "should_trigger": true
+  },
+  {
+    "query": "watch the calle agret 18 charger and let me know within 30 min if a connector frees up",
+    "should_trigger": true
+  },
+  {
+    "query": "i need to charge in valencia centro tomorrow afternoon — where are the available iberdrola posts and what kW do they push?",
+    "should_trigger": true
+  },
+  {
+    "query": "list all iberdrola-network chargers in the alicante area, only the free ones (0 eur/kWh)",
+    "should_trigger": true
+  },
+  {
+    "query": "find me a tesla supercharger near madrid that has at least one stall available",
+    "should_trigger": false
+  },
+  {
+    "query": "what is iberdrola's stock price doing today? id like a chart of the last 6 months",
+    "should_trigger": false
+  },
+  {
+    "query": "warn me when my amazon package becomes available for pickup at the locker on calle agret",
+    "should_trigger": false
+  },
+  {
+    "query": "set up a loop that pings prometheus every 15 seconds and beeps if disk usage goes above 90 percent",
+    "should_trigger": false
+  },
+  {
+    "query": "show me the iberdrola electricity tariffs for my home in valencia — i'm comparing PVPC vs fixed",
+    "should_trigger": false
+  },
+  {
+    "query": "are there any ev chargers near 51.5074, -0.1278 (im in london this week) and which networks are available?",
+    "should_trigger": false
+  },
+  {
+    "query": "what's the best EV to buy in 2026 if i want something that does 300+ km real range and supports 150 kW DC?",
+    "should_trigger": false
+  },
+  {
+    "query": "set up notifications when my Iberia flight to denia is available for online check-in tomorrow morning",
+    "should_trigger": false
+  },
+  {
+    "query": "ping me when the #incidents slack channel gets a new message about the s3 outage",
+    "should_trigger": false
+  },
+  {
+    "query": "i charged my ev for 50 kWh at 0.45 eur/kWh on the AP-7 motorway — calculate the cost and compare to charging at home for 0.12",
+    "should_trigger": false
+  }
+]

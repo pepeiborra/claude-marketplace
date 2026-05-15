@@ -36,6 +36,15 @@ You don't need to manage cookies by hand.
 | Cross-platform desktop notification | `notify.py` | macOS / Linux / Windows + terminal beep |
 | Watch chargers and notify when free | (workflow — see below) | combines `charger_status.py` + `/loop` + `notify.py` |
 
+## Dedicated slash command: `/notify-available-charger`
+
+For the watch-and-notify scenario specifically, the plugin ships a
+slash command at `commands/notify-available-charger.md`. The user types
+`/notify-available-charger <names | cuprIds | location>` and the
+command spec (which mirrors Workflow 3 below) runs deterministically —
+no triggering ambiguity. Prefer that command when the user wants the
+notify-when-free flow.
+
 ## Workflow 1: Find chargers near a place
 
 If the user names a Spanish location, look it up in

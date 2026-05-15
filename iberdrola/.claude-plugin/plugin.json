@@ -1,0 +1,8 @@
+{
+  "name": "iberdrola",
+  "version": "0.1.0",
+  "description": "Iberdrola EV charging-point tools: find, check, monitor, notify.",
+  "author": {
+    "name": "pepeiborra"
+  }
+}

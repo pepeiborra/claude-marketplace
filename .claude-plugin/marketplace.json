@@ -1,9 +1,9 @@
 {
-  "name": "iberdrola-marketplace",
+  "name": "claude-marketplace",
   "owner": {
     "name": "pepeiborra"
   },
-  "description": "Personal marketplace for Iberdrola EV-charger tooling.",
+  "description": "Personal Claude Code marketplace — currently shipping the iberdrola plugin, more to follow.",
   "plugins": [
     {
       "name": "iberdrola",

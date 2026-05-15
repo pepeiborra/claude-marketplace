@@ -1,0 +1,38 @@
+{
+  "_note": "Hand-curated bboxes for common Spanish locations. lat_min, lat_max, lon_min, lon_max in WGS84 decimal degrees. Use as defaults when the user names a place; for anything else, geocode (Nominatim) or ask the user for coordinates.",
+  "denia_urban": {
+    "label": "Denia urban area (Alicante)",
+    "lat_min": 38.820, "lat_max": 38.870,
+    "lon_min": 0.060, "lon_max": 0.150
+  },
+  "denia_wide": {
+    "label": "Denia + La Xara + L'Alqueria + Marriott (wider)",
+    "lat_min": 38.687, "lat_max": 38.847,
+    "lon_min": -0.122, "lon_max": 0.163
+  },
+  "valencia_centro": {
+    "label": "Valencia city centre",
+    "lat_min": 39.460, "lat_max": 39.490,
+    "lon_min": -0.395, "lon_max": -0.355
+  },
+  "madrid_centro": {
+    "label": "Madrid city centre",
+    "lat_min": 40.395, "lat_max": 40.445,
+    "lon_min": -3.730, "lon_max": -3.680
+  },
+  "barcelona_centro": {
+    "label": "Barcelona city centre",
+    "lat_min": 41.370, "lat_max": 41.410,
+    "lon_min": 2.140, "lon_max": 2.200
+  },
+  "bilbao_centro": {
+    "label": "Bilbao city centre",
+    "lat_min": 43.245, "lat_max": 43.275,
+    "lon_min": -2.945, "lon_max": -2.900
+  },
+  "alicante_centro": {
+    "label": "Alicante city centre",
+    "lat_min": 38.330, "lat_max": 38.365,
+    "lon_min": -0.500, "lon_max": -0.460
+  }
+}

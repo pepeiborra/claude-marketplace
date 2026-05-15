@@ -1,0 +1,14 @@
+{
+  "name": "iberdrola-marketplace",
+  "owner": {
+    "name": "pepeiborra"
+  },
+  "description": "Personal marketplace for Iberdrola EV-charger tooling.",
+  "plugins": [
+    {
+      "name": "iberdrola",
+      "source": "./iberdrola",
+      "description": "Find, check, and monitor Iberdrola EV charging points. Includes a watch workflow that pings the user via terminal/desktop notifications when subscribed chargers become free."
+    }
+  ]
+}

@@ -3,12 +3,12 @@
   "owner": {
     "name": "pepeiborra"
   },
-  "description": "Personal Claude Code marketplace — currently shipping the iberdrola plugin, more to follow.",
+  "description": "Personal Claude Code marketplace — currently shipping the ev-charge plugin, more to follow.",
   "plugins": [
     {
-      "name": "iberdrola",
-      "source": "./iberdrola",
-      "description": "Find, check, and monitor Iberdrola EV charging points. Includes a watch workflow that pings the user via terminal/desktop notifications when subscribed chargers become free."
+      "name": "ev-charge",
+      "source": "./ev-charge",
+      "description": "Find, check, and monitor EV charging points in Spain across networks (Iberdrola + Repsol/Waylet). Includes a watch workflow that pings the user via terminal/desktop/Telegram notifications when chargers become free."
     }
   ]
 }

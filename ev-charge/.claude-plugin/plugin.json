@@ -1,0 +1,8 @@
+{
+  "name": "ev-charge",
+  "version": "0.2.0",
+  "description": "EV charging-point tools for Spain (Iberdrola + Repsol/Waylet): find, check, monitor, notify.",
+  "author": {
+    "name": "pepeiborra"
+  }
+}

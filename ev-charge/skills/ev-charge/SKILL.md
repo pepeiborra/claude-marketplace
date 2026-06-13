@@ -1,13 +1,53 @@
 ---
 name: ev-charge
-description: Find, check, and monitor EV charging-point availability in Spain across multiple networks — Iberdrola and Repsol (Waylet). Use this skill whenever the user mentions EV chargers / charging stations / "puntos de recarga" in Spain (Denia, Valencia, Madrid, Bilbao, Alicante, etc.), names Iberdrola or Repsol/Waylet, wants to check if specific chargers are available right now, asks to be warned/notified/pinged when a charger becomes free, wants to set up a watch/loop/poll on charger availability, or mentions cuprId / cuprName / a Repsol station. Each network has a direct client (no backend server needed): Iberdrola via Akamai cookie harvesting over plain HTTP, Repsol via the unauthenticated Waylet RMVE API (live per-connector status). Supports a multi-charger watch flow that polls every 15s and notifies via terminal beep + macOS osascript / Linux notify-send / Windows toast / Telegram. Trigger even when the user doesn't name a network — phrases like "watch Calle Mussola charger", "is the Repsol charger in Denia free", or "warn me when chargers X and Y become free" should all trigger it.
+description: Find, check, and monitor EV charging-point availability in Spain across multiple networks — Iberdrola, Repsol (Waylet), and any others the optional backend adds (Zunder, Eranovum). Use this skill whenever the user mentions EV chargers / charging stations / "puntos de recarga" in Spain (Denia, Valencia, Madrid, Bilbao, Alicante, etc.), names Iberdrola or Repsol/Waylet, wants to check if specific chargers are available right now, asks to be warned/notified/pinged when a charger becomes free, wants to set up a watch/loop/poll or server-side monitor on charger availability, or mentions cuprId / cuprName / a Repsol station. It PREFERS a backend monitor server (multi-provider fan-out, live status, history, and a server-side watch subsystem) but FALLS BACK to bundled direct clients (Iberdrola via Akamai cookie harvesting, Repsol via the unauthenticated Waylet RMVE API) so search + status still work with no backend. Supports both a client-side watch flow (polls every 15s, notifies via terminal beep + macOS osascript / Linux notify-send / Windows toast / Telegram) AND a backend-side monitor (register chargers, the server polls and notifies). Trigger even when the user doesn't name a network — phrases like "watch Calle Mussola charger", "is the Repsol charger in Denia free", or "warn me when chargers X and Y become free" should all trigger it.
 ---
 
 # EV-charge tools
 
 A toolkit for querying and monitoring EV charging-point availability in Spain
-across networks. Two providers are supported today, each with its own direct
-client (no backend server involved):
+across networks.
+
+## Backend-first, with a direct-client fallback
+
+The skill PREFERS a **backend monitor server** and FALLS BACK to **bundled
+direct clients** when no backend is reachable:
+
+- **Backend (preferred).** A standalone monitor server (`~/scratch/iberdrola/`,
+  also deployable to a Pi) exposes a `/api` contract. It fans out across every
+  configured network in one call (`provider=all`), returns live status with
+  exact coordinates and a uniform `charger_dict` shape, can speak networks the
+  direct clients can't (Zunder, Eranovum), and hosts the **server-side watch
+  subsystem** (register chargers → the server's poller notifies you when one
+  frees up). `find_chargers.py` and `charger_status.py` hit it first.
+- **Direct clients (fallback).** When the backend is down, `find_chargers.py`
+  and `charger_status.py` transparently fall back to per-network direct clients,
+  so the skill still works fully standalone for **search + status**:
+  - **`iberdrola`** — the Iberdrola map API. Behind Akamai; cookies are
+    harvested automatically over plain HTTP. A charger is a *pedestal*
+    identified by a numeric `cuprId`.
+  - **`repsol`** — the public Waylet RMVE API (`pro.waylet.es`). No login. A
+    charger is a *station* identified by a Waylet id like
+    `5f80107b2ef2880012122cee`; connectors are flattened across charge points.
+
+**`EV_CHARGE_BACKEND` env var** sets the backend base URL (default
+`http://pipi.local:8765`). Point it at a local server (e.g.
+`http://127.0.0.1:8765`) for testing. All backend calls have short timeouts
+(~8s) so a missing/slow backend degrades quickly to the fallback path — the
+skill never hangs on the network.
+
+**How the fallback is decided:** any connection-refused, DNS failure, timeout,
+or non-2xx HTTP from the backend raises `BackendUnavailable`; `find_chargers` /
+`charger_status` catch it and re-run via the direct client. Each script prints a
+one-line `NOTE:` to stderr saying which path it used (`source=backend` vs
+`source=direct`), and `--no-backend` forces the direct client.
+
+**The server-side monitor (`monitor_chargers.py`) is BACKEND-ONLY** — the
+watch/poll subsystem has no standalone fallback. If the backend is unreachable
+it fails with a clear "needs the backend" message (use `charger_status.py` +
+`/loop` for client-side watching instead; see Workflow 3).
+
+The legacy provider summary (still accurate for the direct-client fallback):
 
 - **`iberdrola`** — the Iberdrola map API
   (https://www.iberdrola.es/movilidad-electrica/puntos-de-recarga). Behind
@@ -19,11 +59,16 @@ client (no backend server involved):
   `5f80107b2ef2880012122cee`; its connectors are flattened across the station's
   charge points.
 
-Every script takes `--provider iberdrola|repsol` (default `iberdrola`).
+`find_chargers.py` takes `--provider iberdrola|repsol|all` (default `all` — the
+backend fans out; when falling back, `all` sweeps both direct clients).
+`charger_status.py` takes `--provider iberdrola|repsol` (default `iberdrola`).
 
 ## Setup (do this once at the start of every task)
 
-The scripts live in `scripts/` next to this file. They only need `requests`:
+The scripts live in `scripts/` next to this file. The backend path
+(`monitor_chargers.py`, and `find_chargers`/`charger_status` while the backend
+is up) is **stdlib-only** — no install needed. The direct-client fallback needs
+`requests`; install it so the fallback works if the backend is ever down:
 
 ```bash
 python3 -c "import requests" 2>/dev/null \
@@ -38,10 +83,11 @@ Python from python.org. Don't proceed without `requests`.
 
 | Task | Script | Notes |
 |---|---|---|
-| Find chargers near a location | `find_chargers.py --provider P` | bbox / center+radius |
-| Check status of specific chargers | `charger_status.py --provider P <ids>` | takes native ids |
+| Find chargers near a location | `find_chargers.py [--provider P]` | backend-first → direct fallback; bbox / center+radius |
+| Check status of specific chargers | `charger_status.py --provider P <ids>` | backend-first → direct fallback; native ids |
+| Server-side monitor (register / list / unregister watches) | `monitor_chargers.py register\|list\|unregister` | **backend-only**; the server polls + notifies |
 | Cross-platform desktop notification | `notify.py` | macOS / Linux / Windows + beep |
-| Watch chargers and notify when free | (workflow — see below) | `charger_status.py` + `/loop` + `notify.py` |
+| Client-side watch + notify when free | (workflow — see below) | `charger_status.py` + `/loop` + `notify.py` |
 
 ## Choosing a provider
 
@@ -69,10 +115,10 @@ Bilbao / Alicante are pre-seeded). If not pre-seeded, geocode it: WebFetch
 coordinates, pass them through.
 
 ```bash
-# Iberdrola (default), pre-seeded place
+# All networks (default — backend fans out; falls back to direct clients)
 python3 scripts/find_chargers.py --bbox 38.820 38.870 0.060 0.150
 
-# Repsol, near a point
+# Constrain to one network
 python3 scripts/find_chargers.py --provider repsol --center 38.840 0.106 --radius-km 3
 
 # Free-only filter (0 EUR/kWh — typically municipal slow AC; rare on Repsol)
@@ -80,12 +126,19 @@ python3 scripts/find_chargers.py --center 38.840 0.106 --radius-km 2 --only-free
 
 # Machine-readable
 python3 scripts/find_chargers.py --provider repsol --bbox 38.80 38.88 0.00 0.20 --json
+
+# Force the bundled direct client (skip the backend)
+python3 scripts/find_chargers.py --no-backend --center 38.840 0.106 --radius-km 3
 ```
 
-`--json` returns one row per charger with `provider`, `charger_id`, name,
-address, free/total, max_kw, min price, distance_km, lat/lon. Rows are sorted by
-distance. **Repsol coordinates** come from Repsol's static station finder and
-are reliable; live free/total comes from Waylet.
+Default `--provider all`: via the backend this returns every network in one
+call; on the fallback path it sweeps the two direct clients (iberdrola + repsol)
+and merges. `--json` returns one row per charger with `provider`, `charger_id`,
+name, address, free/total, max_kw, min price, distance_km, lat/lon. Rows are
+sorted by distance. **Backend** `charger_id` is a GLOBAL id (`provider:native`)
+and coordinates are exact; the **direct-client Repsol** path uses native ids and
+approximate coordinates from the static station finder (the `~`-prefixed
+distances). A `NOTE:` on stderr says `source=backend` or `source=direct`.
 
 ## Workflow 2: Check the status of a specific charger
 
@@ -104,10 +157,26 @@ are reliable; live free/total comes from Waylet.
 One id = one pedestal (Iberdrola) or one station (Repsol), each with several
 connectors. `free`/`total` counts connectors, not pedestals/stations.
 
-## Workflow 3: "Warn me when charger X (and Y) become free"
+## Two ways to "warn me when a charger frees up"
 
-The central workflow: identification → sanity check → a self-pacing `/loop` →
-multi-channel notification. (The `/notify-available-charger` command automates it.)
+There are two monitoring modes; pick based on whether the backend is reachable:
+
+- **Backend-side monitor (preferred when the backend is up)** — Workflow 4.
+  Register chargers on the server; its background poller watches them and fires
+  notifications. Survives this session ending. **Requires the backend.**
+- **Client-side watch loop (always available)** — Workflow 3. A self-pacing
+  `/loop` polls `charger_status.py` every 15s and notifies locally. Works with
+  no backend (the status calls fall back to the direct clients), but only lasts
+  as long as the loop/session runs.
+
+When the backend is reachable, prefer Workflow 4. The
+`/notify-available-charger` command picks the right mode automatically.
+
+## Workflow 3: client-side watch loop ("warn me when charger X becomes free")
+
+The client-side workflow: identification → sanity check → a self-pacing `/loop`
+→ multi-channel notification. Works with no backend (status falls back to direct
+clients). For a durable server-side monitor, prefer Workflow 4.
 
 ### Step 1: Resolve names to ids (and the provider)
 
@@ -158,6 +227,40 @@ Fire through **every available channel**:
 Tell the user what you're watching (provider + names + ids), the interval (15s),
 the channels, and how to stop (`TaskStop` on the loop, or ask you to stop).
 
+## Workflow 4: backend-side monitor (durable, server polls + notifies)
+
+**Requires the backend.** Hand a set of chargers to the server's watch
+subsystem; its background poller checks them every cycle and fires a
+notification on a busy→free transition. This survives the session ending — no
+client-side loop. If the backend is unreachable, `monitor_chargers.py` fails
+with a clear "needs the backend" message; fall back to Workflow 3.
+
+Typical flow — search, find everything busy, monitor them, check back later:
+
+```bash
+# 1. Find chargers (backend); note their GLOBAL charger_ids (provider:native).
+python3 scripts/find_chargers.py --center 38.840 0.106 --radius-km 2 --json
+
+# 2. All busy → register the ones to watch (global ids, or --provider + native).
+python3 scripts/monitor_chargers.py register iberdrola:6760 repsol:5f80107b2ef2880012122cee
+python3 scripts/monitor_chargers.py register --provider iberdrola 6760 6761   # equivalent
+
+# 3. Later, "check my monitors" — shows each watch + a FREED UP section.
+python3 scripts/monitor_chargers.py list
+
+# 4. Stop watching some/all.
+python3 scripts/monitor_chargers.py unregister iberdrola:6760
+```
+
+Ids passed to the monitor are GLOBAL (`provider:native`) — exactly the
+`charger_id` that `find_chargers.py` returns on the backend path. `register`
+maps to `POST /api/watch`, `list` to `GET /api/watches`, `unregister` to
+`DELETE /api/watch`. A freshly-registered watch shows "not yet polled" until the
+server's next poll cycle (default 60s), after which `list` shows live free/total
++ status and surfaces freed-up chargers. The server delivers the actual
+notification (desktop / Telegram / web push, per its own config) — you don't
+need a client-side loop. Use `--ttl-s` to bound how long a watch lives.
+
 ## Edge cases and gotchas
 
 **Iberdrola — `_abck` cookie at `~-1~`**: normal. The API only checks cookie
@@ -180,17 +283,36 @@ statuses map to the canonical enum: `BUSY`→`EV_CONNECTED`, `CHARGING`→`OCCUP
 static station finder (which has coordinates). If `find_chargers` finds a station
 but `charger_status` returns nothing for its id, the station may be offline in Waylet.
 
-**Rate limiting**: the map UIs poll ~every 60s. The 15s watch interval is
-comfortable; don't go below ~10s.
+**Rate limiting**: the map UIs poll ~every 60s. The 15s client-side watch
+interval is comfortable; don't go below ~10s. The backend monitor paces itself
+(default 60s poll) — don't try to poll `monitor_chargers.py list` faster than
+that; the server only refreshes once per cycle.
+
+**Backend unavailable**: `find_chargers` / `charger_status` print a `NOTE:` and
+fall back to the direct clients automatically — nothing to do. Only
+`monitor_chargers.py` hard-requires the backend; if it errors, set
+`EV_CHARGE_BACKEND` correctly (or start the server) and retry, or use the
+Workflow 3 client-side loop instead.
+
+**Backend reachable but a provider errors**: the backend isolates per-provider
+failures and returns them in `errors[]`; the scripts print each as a `NOTE:` and
+still return the other networks' chargers. (E.g. Waylet rate-limiting Eranovum
+shows as one note, not a total failure.)
 
 ## What this skill does NOT do
 
-- **Reserve, pay, or interact beyond reading status.** Both APIs are read-only here.
-- **Run as a server / drive an iOS app.** For that, see the standalone server at
-  `~/scratch/iberdrola/server/` (separate project; same providers, with history,
-  notifications, and a dashboard).
-- **Networks other than Iberdrola and Repsol** (yet). Adding one means a new
-  `*_evcp.py` client + an adapter in `scripts/providers.py`.
+- **Reserve, pay, or interact beyond reading status.** All APIs are read-only here.
+- **Run as a server / drive an iOS app.** The skill is a *client*: it prefers
+  the standalone server at `~/scratch/iberdrola/server/` (separate project —
+  history, notifications, dashboard, and the watch subsystem) and falls back to
+  direct clients. It does not run that server.
+- **Monitor without a backend.** Server-side monitoring (`monitor_chargers.py`)
+  needs the backend; without it, only the client-side `/loop` watch (Workflow 3)
+  is available.
+- **Speak networks beyond Iberdrola and Repsol via the direct fallback.** The
+  backend can add more (Zunder, Eranovum); the bundled direct clients only do
+  iberdrola + repsol. Adding a direct client means a new `*_evcp.py` + an adapter
+  in `scripts/providers.py`.
 
 ## Reference files
 
@@ -199,13 +321,22 @@ comfortable; don't go below ~10s.
 
 ## Bundled scripts
 
-- `scripts/providers.py` — provider abstraction: normalized `Charger`/`Connector`
-  model + `make_provider("iberdrola"|"repsol")`. Each adapter exposes
-  `list_near(bbox)` and `status(ids)`.
+- `scripts/backend.py` — stdlib-only HTTP client for the monitor backend
+  (`/api/search`, `/api/charger`, `/api/providers`, `/api/watch[es]`). Resolves
+  `EV_CHARGE_BACKEND` (default `http://pipi.local:8765`), short timeouts, raises
+  `BackendUnavailable` on any failure (the fallback trigger), and maps the
+  backend's `charger_dict` into the skill's row shapes.
+- `scripts/find_chargers.py` — list/filter chargers in an area. Backend-first
+  (`--provider all` fans out) → direct-client fallback. `--no-backend` to force.
+- `scripts/charger_status.py` — current status of specific native ids
+  (`--provider`). Backend-first → direct-client fallback. `--no-backend` to force.
+- `scripts/monitor_chargers.py` — **backend-only** server-side watch:
+  `register` / `list` / `unregister` (POST/GET/DELETE `/api/watch[es]`).
+- `scripts/providers.py` — direct-client provider abstraction: normalized
+  `Charger`/`Connector` + `make_provider("iberdrola"|"repsol")`, each exposing
+  `list_near(bbox)` and `status(ids)`. Used on the fallback path.
 - `scripts/iberdrola_evcp.py` — low-level Iberdrola API client.
 - `scripts/repsol_evcp.py` — low-level Repsol Waylet RMVE client (+ static
   station-finder discovery).
 - `scripts/client.py` — Iberdrola HTTP cookie-harvest factory (`make_client()`).
-- `scripts/find_chargers.py` — list/filter chargers in an area (`--provider`).
-- `scripts/charger_status.py` — current status of specific ids (`--provider`).
 - `scripts/notify.py` — cross-platform desktop + terminal-beep notifier.

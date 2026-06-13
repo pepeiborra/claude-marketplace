@@ -1,5 +1,5 @@
 ---
-description: Find an EV charger (Iberdrola or Repsol) that is free right now, or start a 15s monitor and notify when one becomes available. Accepts charger names, ids, locations, or free-form descriptions.
+description: Find an EV charger (any network) that is free right now, or monitor it and notify when one becomes available — via the backend watch subsystem if reachable, else a local 15s loop. Accepts charger names, ids, locations, or free-form descriptions.
 argument-hint: <charger names | ids | location | "near coords"> [iberdrola|repsol]
 allowed-tools: Bash, Read, Skill, ScheduleWakeup, WebFetch
 ---
@@ -10,7 +10,13 @@ The user invoked `/notify-available-charger` with this input:
 $ARGUMENTS
 ```
 
-Carry out the workflow below. The bundled `ev-charge` skill at this plugin's `skills/ev-charge/` has everything you need — read its `SKILL.md` once and follow the workflows there. Do NOT reinvent the network calls. Every script takes `--provider iberdrola|repsol` (default `iberdrola`).
+Carry out the workflow below. The bundled `ev-charge` skill at this plugin's `skills/ev-charge/` has everything you need — read its `SKILL.md` once and follow the workflows there. Do NOT reinvent the network calls.
+
+The skill is **backend-first with a direct-client fallback**: `find_chargers.py` (`--provider iberdrola|repsol|all`, default `all`) and `charger_status.py` (`--provider iberdrola|repsol`, default `iberdrola`) prefer the backend (`EV_CHARGE_BACKEND`, default `http://pipi.local:8765`) and fall back to the bundled direct clients automatically. The **backend monitor** (`monitor_chargers.py`) is backend-only.
+
+There are TWO ways to monitor; this command picks one in Step 5:
+- **Backend monitor** (preferred when the backend is up): register chargers, the server polls + notifies. Durable across sessions.
+- **Client-side `/loop`** (always works): a 15s loop polls `charger_status.py` and notifies locally.
 
 ## Step 1 — Parse the input
 
@@ -30,9 +36,11 @@ If the input is ambiguous, **make a reasonable assumption and proceed** rather t
 Pick the strategy that fits the input:
 
 - **If ids given directly**: use them with the matching `--provider`. No lookup needed.
-- **If charger name + implied location**: look the location up in `references/known_locations.json` first (Denia, Valencia, Madrid, Barcelona, Bilbao, Alicante are pre-seeded). If not pre-seeded, geocode via Nominatim. Then run `find_chargers.py --provider <P> --bbox ...` (or `--center`) and fuzzy-match the name.
-- **If location only ("watch chargers near X")**: run `find_chargers.py --provider <P> --center LAT LON --radius-km 2`. If the user didn't name a network, run it for BOTH iberdrola and repsol and merge. Treat all chargers in the area as the watch set; if there are more than ~10, ask the user to narrow (or use `--only-free`).
+- **If charger name + implied location**: look the location up in `references/known_locations.json` first (Denia, Valencia, Madrid, Barcelona, Bilbao, Alicante are pre-seeded). If not pre-seeded, geocode via Nominatim. Then run `find_chargers.py [--provider <P>] --bbox ...` (or `--center`) and fuzzy-match the name.
+- **If location only ("watch chargers near X")**: run `find_chargers.py --center LAT LON --radius-km 2`. Default `--provider all` already covers every network in one call (the backend fans out; the fallback sweeps iberdrola + repsol) — only pass `--provider` if the user named one network. Treat the chargers in the area as the watch set; if there are more than ~10, ask the user to narrow (or use `--only-free`).
 - **If coordinates given**: pass directly to `--center LAT LON`.
+
+Note the `source=backend` / `source=direct` `NOTE:` on stderr. On the backend path each `charger_id` is a GLOBAL id (`provider:native`, e.g. `iberdrola:6760`) — capture it, the backend monitor wants exactly that. On the fallback path ids are native; you'll need `--provider` + native id for the monitor.
 
 **Always** show the user the resolved list (`provider — id — name — address`) in 1-2 lines per charger before starting the watch, so they can catch a mismatch.
 
@@ -52,9 +60,25 @@ Parse the JSON.
 - **If ALL matched chargers have `all_out_of_service: true`**: warn the user (OOS can take days to recover) and ask whether to proceed or drop the OOS ones. Don't start the loop until they confirm.
 - **Otherwise** (at least one OCCUPIED / EV_CONNECTED / mixed): proceed to Step 5.
 
-## Step 5 — Start the watch
+## Step 5 — Start the monitor (pick backend OR client-side loop)
 
-Use the `loop` skill at a 15-second interval. The loop runs in a fresh session, so embed everything as literal values (provider, ids, plugin absolute path, the user's label for the chargers, any active Telegram chat_id). If watching both networks, embed one `charger_status.py --provider ...` call per network in the loop prompt.
+Prefer the **backend monitor** when the backend is reachable (durable, server-driven, survives this session). Fall back to the **client-side loop** otherwise.
+
+### Step 5a — Try the backend monitor first
+
+Register the watch set with the server. Use GLOBAL ids (`provider:native`) — the ids `find_chargers.py` returned on the backend path — or `--provider <P>` plus native ids:
+
+```bash
+python3 <plugin>/skills/ev-charge/scripts/monitor_chargers.py register <GLOBAL_ID1> <GLOBAL_ID2> ...
+# or, from native ids:  monitor_chargers.py register --provider iberdrola 6760 6761
+```
+
+- If this **succeeds** (exit 0, prints "Registered N watch(es)"): the server now polls them and notifies on its own. Tell the user how to check (`monitor_chargers.py list`, which shows a FREED UP section once the server has polled — first poll can take up to ~60s) and how to stop (`monitor_chargers.py unregister <ids>`). **Do NOT also start a /loop.** Done.
+- If this **fails** with a "needs the backend" message (exit 1): the backend is unreachable. Fall through to Step 5b.
+
+### Step 5b — Client-side `/loop` fallback (no backend)
+
+Use the `loop` skill at a 15-second interval. The loop runs in a fresh session, so embed everything as literal values (provider, ids, plugin absolute path, the user's label for the chargers, any active Telegram chat_id). If watching both networks, embed one `charger_status.py --provider ...` call per network in the loop prompt. `charger_status.py` will itself fall back to the direct client, so this works with no backend.
 
 Example invocation pattern:
 
@@ -88,19 +112,21 @@ End the command's first turn with a short summary:
 
 - What you resolved (network + ids + names)
 - Current status snapshot (free/occupied per charger)
-- Whether you notified immediately or started a watch
-- If watching: interval (15s), channels, how to stop (`TaskStop` on the loop or "stop watching the chargers")
+- Whether you notified immediately or started a monitor
+- Which monitor mode you used:
+  - **Backend monitor**: the server is now watching; how to check (`monitor_chargers.py list`) and stop (`monitor_chargers.py unregister <ids>`). No client loop is running.
+  - **Client-side loop**: interval (15s), channels, how to stop (`TaskStop` on the loop or "stop watching the chargers").
 
 ## Examples
 
 **Input:** `Calle Mussola`
-→ iberdrola. Resolve to cuprId 98482 via known_locations[denia_urban] + find_chargers. Check status; if free notify, else loop.
+→ iberdrola. Resolve to cuprId 98482 via known_locations[denia_urban] + find_chargers (note its global id `iberdrola:98482`). Check status; if free notify; else register `iberdrola:98482` on the backend monitor, or loop if no backend.
 
 **Input:** `the Repsol charger at CRED Denia`
-→ repsol. find_chargers --provider repsol --center 38.84 0.10 --radius-km 3, match "CRED Denia" → commerce id. Check status; loop if occupied.
+→ repsol. find_chargers --provider repsol --center 38.84 0.10 --radius-km 3, match "CRED Denia" → commerce id (global `repsol:5f80...`). Check status; monitor if occupied (backend register, else loop).
 
 **Input:** `any free charger near plaza del marquesado, denia`
-→ Geocode → coords near (38.836, 0.109). Run find_chargers for BOTH iberdrola and repsol --center 38.836 0.109 --radius-km 1, merge, take the closest few, watch all.
+→ Geocode → coords near (38.836, 0.109). Run find_chargers --center 38.836 0.109 --radius-km 1 (default `all` covers every network), take the closest few, watch all — backend-register the global ids if the backend is up, else one merged loop.
 
 **Input:** `6760, 6761, 98494`
-→ iberdrola cuprIds directly. Check status. Watch any not already free.
+→ iberdrola cuprIds directly. Check status. Monitor any not already free: `monitor_chargers.py register --provider iberdrola 6760 6761 98494` (backend), or a `/loop` over `charger_status.py` if no backend.

@@ -1,7 +1,7 @@
 {
   "name": "ev-charge",
-  "version": "0.2.0",
-  "description": "EV charging-point tools for Spain (Iberdrola + Repsol/Waylet): find, check, monitor, notify.",
+  "version": "0.3.0",
+  "description": "EV charging-point tools for Spain: find, check, monitor, and notify across networks. Prefers the backend API (Iberdrola/Repsol/Zunder/Eranovum + server-side monitoring) with a direct-client fallback (Iberdrola+Repsol).",
   "author": {
     "name": "pepeiborra"
   }

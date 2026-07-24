@@ -46,21 +46,26 @@ REQUIRED_COOKIES = ("_abck", "bm_sz", "ak_bmsc")
 
 
 def harvest_cookies(timeout: float = 15.0) -> dict[str, str]:
-    """Single HTTP GET → Set-Cookie response → dict of cookies."""
+    """Single HTTP GET → Set-Cookie across redirect hops → dict of cookies."""
 
     with requests.Session() as s:
         s.headers.update(BROWSER_HEADERS)
         resp = s.get(BOOTSTRAP_URL, timeout=timeout, allow_redirects=True)
-    if resp.status_code != 200:
-        raise RuntimeError(
-            f"Bootstrap GET returned HTTP {resp.status_code}; "
-            f"Akamai may have tightened"
-        )
-    cookies = {
-        c.name: c.value
-        for c in resp.cookies
-        if not c.domain or "iberdrola.es" in c.domain
-    }
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"Bootstrap GET returned HTTP {resp.status_code}; "
+                f"Akamai may have tightened"
+            )
+        # Harvest from the SESSION jar, not `resp.cookies`. The bootstrap URL
+        # now 302→301→200-redirects, and Akamai sets `_abck` on the first (302)
+        # hop while `ak_bmsc` only lands on the final 200 — so `resp.cookies`
+        # (final hop only) would be missing `_abck`. The session jar
+        # accumulates Set-Cookie across every redirect hop.
+        cookies = {
+            c.name: c.value
+            for c in s.cookies
+            if not c.domain or "iberdrola.es" in c.domain
+        }
     missing = [c for c in REQUIRED_COOKIES if c not in cookies]
     if missing:
         raise RuntimeError(

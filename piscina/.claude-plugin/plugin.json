@@ -1,0 +1,8 @@
+{
+  "name": "piscina",
+  "version": "0.2.1",
+  "description": "Operate, diagnose and modify pepeiborra's saltwater pool system in Dénia: AquaRite+/NeoPool chlorinator, MaxFlo VS pump, Home Assistant scheduler on the Pi, pH/acid dosing and alkalinity model, rainwater refills.",
+  "author": {
+    "name": "pepeiborra"
+  }
+}

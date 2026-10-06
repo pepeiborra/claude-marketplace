@@ -3,12 +3,17 @@
   "owner": {
     "name": "pepeiborra"
   },
-  "description": "Personal Claude Code marketplace — currently shipping the ev-charge plugin, more to follow.",
+  "description": "Personal Claude Code marketplace — ev-charge and piscina plugins.",
   "plugins": [
     {
       "name": "ev-charge",
       "source": "./ev-charge",
       "description": "Find, check, and monitor EV charging points in Spain across networks (Iberdrola + Repsol/Waylet). Includes a watch workflow that pings the user via terminal/desktop/Telegram notifications when chargers become free."
+    },
+    {
+      "name": "piscina",
+      "source": "./piscina",
+      "description": "Pool operations for the Dénia saltwater pool: status checks, HA alert triage, water chemistry decisions (TA/pH/ORP/CYA/salt), chlorinator and pump troubleshooting, scheduler and dashboard changes, rainwater refills."
     }
   ]
 }

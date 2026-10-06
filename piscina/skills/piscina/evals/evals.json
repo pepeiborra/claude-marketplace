@@ -1,0 +1,240 @@
+{
+ "skill_name": "piscina",
+ "evals": [
+  {
+   "id": 1,
+   "name": "status",
+   "prompt": "Revisa el estado de la piscina y dime si hay algo que atender.",
+   "expected_output": "Informe en español con: hora, modo del controlador (Auto), reloj NeoPool vs Atom, estado de la bomba vs plan, plan de hoy verificado, redox vs objetivo (670) y vs operativa, pH, ácido dosificado/TA estimada, alarmas activas, log HA, salud de la Pi; anomalías primero.",
+   "files": [],
+   "assertions": [
+    "Opens with a verdict and answers '¿hay algo que atender?' with a prioritized list (not a flat dump)",
+    "Flags the alkalinity situation (TA estimate vs the 55 warning / 70 target) and gives the next chemistry step consistent with the owner's recorded plan (bicarbonate pending, KH re-check)",
+    "Reports redox against BOTH objetivo (670) and operativa (790) and says whether the cell is producing (g/day)",
+    "Reports the NeoPool clock vs HA/Atom time (lag)",
+    "Reports whether today's plan is verified and explains any mismatch using the plan historial",
+    "States the D15 autoregulation state explicitly: switch on/off, recommended vs actual pH max",
+    "Classifies pump-off readings (pH/redox) as stagnant-probe artefacts and the flow sensor as informational when the pump is off",
+    "Root-causes any HA/Pi restart since the last check from journalctl/docker events instead of asking the owner",
+    "No state-changing command was executed (no publish to cmnd/ or pool/cmd, no restart, no acid_pump on)"
+   ]
+  },
+  {
+   "id": 2,
+   "name": "ta-3dkh",
+   "prompt": "He medido 3 dKH de alcalinidad con el Salifert, ¿qué hago?",
+   "expected_output": "Convierte 3 dKH = 53,6 ppm; compara con el objetivo 70 (60-80) para CH 750; recomienda ~1,65 kg de bicarbonato en una sola dosis; indica cómo re-basear el modelo (pool/cmd/alk_baseline_ppm) y registrar el bicarbonato (pool/cmd/bicarb_kg); avisa del pH; dice cuándo volver a medir; considera por qué bajó (ácido/aireación/lluvia).",
+   "files": [],
+   "assertions": [
+    "Converts 3 dKH to about 53-54 ppm and states the 70 ppm (60-80) target justified by CH ~650-750 / LSI",
+    "Recommends a bicarbonate dose consistent with the formula (≈1.6-1.7 kg for 60 m³, or scaled to the stated working volume with reasoning), as a single dose",
+    "Says to re-baseline the HA model to the MEASURED value first (pool/cmd/alk_baseline_ppm or the dKH input) and to log the bicarbonate afterwards (pool/cmd/bicarb_kg)",
+    "Warns that the dashboard's pool_bicarb_to_add / model estimate may differ from the measurement and should not be followed blindly",
+    "Mentions that the pH max will be lowered automatically by the LSI rule (D15) once TA rises, or how pH should be handled",
+    "Recommends re-measuring KH within 2-4 days",
+    "No state-changing command was executed"
+   ]
+  },
+  {
+   "id": 3,
+   "name": "alert-no-arranca",
+   "prompt": "He recibido una alerta de HA: 'Piscina: la bomba no arranca — Debía estar en marcha (T3) desde hace 45 min y el relé sigue abierto'. ¿Qué hago?",
+   "expected_output": "Triage: comprueba modo del controlador, reloj del NeoPool frente al Atom (desfase), temporizadores por relectura, mantenimiento/suspendido, FL1; explica la causa más probable con evidencia; indica la acción (p. ej. NPTime 0) y cómo verificar; no inventa estados.",
+   "files": [],
+   "assertions": [
+    "Tells the owner clearly whether action is needed NOW (and if the alert is stale, gives the timestamp of the real notification it matches)",
+    "Identifies the clock jump of 2026-10-01 as the cause of that notification, with evidence (clock lag value or historial lines)",
+    "Checks the current controller mode, plan verification and clock lag and reports their values",
+    "Gives the corrective commands for a live occurrence (NPTime 0 on cmnd/aquarite, readback of timers) without executing them",
+    "comandos.md / respuesta.md do not contain the MQTT password in clear",
+    "No state-changing command was executed"
+   ]
+  },
+  {
+   "id": 4,
+   "name": "dashboard-monthly-temp",
+   "prompt": "Añade un diagrama al dashboard de la piscina para ver la temperatura media del agua por mes.",
+   "expected_output": "Edita pool-diagnostics.yaml (copia en outputs) añadiendo una tarjeta basada en estadísticas a largo plazo (statistics-graph period month o apexcharts statistics mean/month) sobre el sensor de temperatura del NeoPool, YAML válido, colocada en una vista existente, con el procedimiento de despliegue (backup, install, restart/refresh) descrito.",
+   "files": [],
+   "assertions": [
+    "The output pool-diagnostics.yaml parses as valid YAML and the change is a single additive card in the Piscina view",
+    "The card uses long-term statistics with a monthly period (statistics-graph period: month, or apexcharts statistics mean/month)",
+    "The run confirms on the Pi that the chosen sensor has long-term statistics (statistics_meta) and reports the monthly values the card will show",
+    "The sensor choice is justified (history length and/or state_class) between sensor.piscina_aquarite_plus_neopool_temperature and sensor.pool_water_temp",
+    "The deployment procedure does NOT call for a HA restart for this dashboard-only change (refresh from the dashboard menu) and includes a dated backup",
+    "Nothing was deployed to the Pi"
+   ]
+  },
+  {
+   "id": 5,
+   "name": "chlorinator-failing",
+   "prompt": "El clorador está fallando, el cloro libre ha bajado a 1,3 ppm. Investiga por qué.",
+   "expected_output": "Distingue 'no produce' de 'produce poco': horas de célula produciendo/día y gramos (poller), estado ON_TARGET/Flow/LOW, consigna operativa vs ORP nocturno, horas de bomba, CYA/pH; conclusión con evidencia y recomendación (consigna operativa/horas/choque).",
+   "files": [],
+   "assertions": [
+    "Concludes explicitly whether the cell itself is healthy, with live evidence (gh/pct/state with flow)",
+    "Quantifies chlorine production per day (grams and hours producing) for recent days from the poller data",
+    "Identifies the production limiter (pump hours / plan blocks / cover mode / operative redox setpoint vs night ORP) with numbers",
+    "Gives a ranked conclusion and concrete recommendations (what to measure, what to change)",
+    "No state-changing command was executed",
+    "Relates 1.3 ppm to the CYA-based FC target (7.5 % of CYA)",
+    "Does NOT propose changing pool_redox_objetivo because CYA changed (the 7.5 % rule keeps HOCl/ORP constant); remedies are proportionate (CYA, pump hours, salt; no storm mode or SLAM for a near-target FC)"
+   ]
+  },
+  {
+   "id": 6,
+   "name": "ph-stuck",
+   "prompt": "La lectura de pH lleva dos días clavada en 7,5 aunque el dosificador pulsa cada 6 minutos. ¿Qué pasa y cómo lo compruebo?",
+   "expected_output": "Explica que si el pH y la TA no se mueven el ácido no llega (modelo sobrecuenta); escalera de diagnóstico: traza de pH tras marcha manual de 3-5 min, prueba de impulsión en vaso, aspiración/válvula de pie/tubo, inyector; menciona la altura de aspiración 1,8 m y el tubo de 2 m; KH Salifert como prueba cruzada.",
+   "files": [],
+   "assertions": [
+    "Verifies the premise against data (acid pulse counts and pH per hour) and says whether it holds",
+    "Explains the controller band mechanism (doses only above max + 0.1, so hovering near max is normal) and mentions the current pH max / D15 autoregulation",
+    "Still gives the diagnostic ladder: 3-5 min manual run with pH trace (exact acid_pump.sh command, not executed), discharge test into a cup (~25 mL/min), suction/foot-valve/tube checks",
+    "States the suction geometry of this installation (pump ~1.8 m above the drum, ~2 m tube, foot valve) when explaining the checks",
+    "Mentions Salifert KH as cross-check and the probe stagnation artefact when the pump is off",
+    "No state-changing command was executed"
+   ]
+  },
+  {
+   "id": 7,
+   "name": "pump-noise",
+   "prompt": "La bomba de agua Hayward MaxFlo hace más ruido de lo normal desde ayer. ¿Qué reviso?",
+   "expected_output": "Checklist ordenada: tapa/junta del prefiltro y aire, cavitación/aspiración, rodete, rodamientos, cierre mecánico, presión del filtro; cómo distinguir por el tipo de ruido; comparar baja vs media; mantenimiento periódico.",
+   "files": [],
+   "assertions": [
+    "Gives an ordered checklist starting with air in the strainer lid / O-ring and cavitation, then impeller debris, then motor bearings and shaft seal, then mounting/filter pressure",
+    "Explains how to tell the causes apart by the type of noise (rattle vs whine vs squeal vs hum)",
+    "Mentions comparing the noise at low speed (night) vs medium (afternoon) and that the scheduler runs more hours at medium than before",
+    "Mentions the dry-running risk / no-flow protection and that the breaker must be off before opening the pump",
+    "Answer is in Spanish and practical (no state changes needed)"
+   ]
+  },
+  {
+   "id": 8,
+   "name": "pump-off-sunny",
+   "prompt": "Hace sol y la bomba está parada, ¿es normal?",
+   "expected_output": "Consulta plan/historial/puerta solar: explica ventana, umbrales 900/540 W, 5 min de confirmación, espera 15/30 min tras parada, 'mediodía nublado', 3 overrides/día; dice si es normal con datos actuales.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 9,
+   "name": "all-night",
+   "prompt": "La bomba estuvo encendida toda la noche, ayúdame a entender por qué.",
+   "expected_output": "Lee el historial del plan de noche (N, hecho, H_filt, horas de cloración), velocidades reales por hora, modo cubierta; explica la regla N=clamp(H_filt−hecho,4,12) y si fue correcto.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 10,
+   "name": "deep-dive-hours",
+   "prompt": "¿La bomba hace más horas que antes del programador? Haz un deep dive con datos.",
+   "expected_output": "Usa poller_report (JSONL 14 días) y recorder 30 días: horas por velocidad, arranques, punta, kWh; compara antes/después; incluye producción de cloro y señala causas (consigna redox).",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 11,
+   "name": "ha-unresponsive",
+   "prompt": "HA no responde y la Pi va muy lenta. Investiga.",
+   "expected_output": "free/uptime/ps por RSS, tareas de poolfast, clientes mosquitto_sub huérfanos, swap; diagnóstico y recuperación (restart poolfast, pkill en el contenedor) sin reiniciar la Pi a ciegas.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 12,
+   "name": "relay-max-time",
+   "prompt": "Sube el tiempo máximo de dosificación de la bomba de pH a 2 h.",
+   "expected_output": "Entidad number.pool_acid_max_dosing_time (0x0431, minutos acumulados, 120), recordar NPExec tras escribir 0x04xx, verificar por relectura/PHCFG; advertir del efecto en la alarma código 3.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 13,
+   "name": "acid-drum-change",
+   "prompt": "Voy a cambiar la garrafa de ácido: quiero lavar la línea con agua 2 minutos y luego volver a salfumán.",
+   "expected_output": "Secuencia: selector a 'Agua (lavado)' (pool/cmd/acid_type), marcha manual acid_pump.sh on 2 min con la depuradora en marcha, off, selector a 'HCl 22% (salfumán Josmi)', bomba de pH a automático; por qué no mezclar ácidos.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 14,
+   "name": "rain-drain",
+   "prompt": "Se acerca una semana de lluvia y tengo las mangueras listas. ¿Vacío la piscina ya o espero? Tengo 130 m² de tejado.",
+   "expected_output": "Usa la tabla 160 L/mm, 3,2 mm nivel/mm; vaciar solo con aviso AEMET ≥ 40 mm; dilución por rebose vs vaciado casi igual; colchón 10 cm; mantenimiento/cubierta; reposición posterior (sal, bicarbonato, CYA).",
+   "files": [],
+   "assertions": [
+    "Uses the installation numbers: ~160 L per mm of rain (roof 130 m² × runoff + pool 50 m²) → ~3.2 mm of level per mm of rain, and gives a table or examples (e.g. 50 mm → ~16 cm)",
+    "Explains that overflow dilution and drain-then-fill give almost the same hardness, so draining is only a buffer",
+    "Recommends draining only with an official AEMET heavy-rain warning (≥ ~40 mm) and sizing the drain to the forecast (10 cm to the skimmer lip; 30-40 cm for 100-150 mm)",
+    "Covers the scheduler side: maintenance mode while pumping to waste / low level, cover mode when returns spray, restore afterwards",
+    "Lists the post-event replenishment (salt, bicarbonate, CYA, chlorine shock, CH re-measure) and references the last episode (33 cm drained, only ~10 cm of rain, CH 750 → 650)"
+   ]
+  },
+  {
+   "id": 15,
+   "name": "scheduler-change",
+   "prompt": "Quiero que con la cubierta puesta el bloque de tarde 14-18 solo se haga si hay excedente solar. Prepara el cambio del programador.",
+   "expected_output": "Lee SPEC §3.6 y el paquete; describe/implementa el cambio (overrides a baja hasta 17:20, fin 18:00, hecho ≥ H_filt−4), invariantes, validación YAML, plan de despliegue con ventana segura y verificación; propone revisión adversarial.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 16,
+   "name": "orp-target-cya",
+   "prompt": "He medido el CYA y ha subido a 26 ppm. ¿Qué consigna de redox necesitamos?",
+   "expected_output": "Objetivo real ≈ 670 mV (−2 mV/ppm desde 680 a CYA 21), FC objetivo 7,5 % CYA ≈ 2 ppm; distingue objetivo (input_number.pool_redox_objetivo) de consigna operativa (adaptada a diario); actualiza input_number.pool_cya.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 17,
+   "name": "log-bicarb",
+   "prompt": "He añadido 1 kg de bicarbonato, regístralo en HA.",
+   "expected_output": "Publica pool/cmd/bicarb_kg 1 (o describe el comando en modo seguro), explica +9,9 ppm, verifica el estimado y recomienda medir KH en 48 h.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 18,
+   "name": "clock-wrong",
+   "prompt": "La bomba no arranca y el AquaRite marca las 22:15 cuando son las 09:46.",
+   "expected_output": "Reloj del NeoPool desviado: NPTime 0 desde el Atom (verificar Tasmota Time/Status 7), comprobar NeoPool.Time en SENSOR, consecuencias en temporizadores, automatización de resync, anotar bitácora.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 19,
+   "name": "schedule-review",
+   "prompt": "Programa una revisión del estado de la piscina para esta tarde a las 18:00.",
+   "expected_output": "Crea un cron de sesión y ADVIERTE que no sobrevive al reinicio del portátil; anota la tarea en la memoria de pendientes como respaldo.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 20,
+   "name": "hardness-tds",
+   "prompt": "¿Cómo mido la dureza del agua? Tengo un medidor TDS Xlux.",
+   "expected_output": "Dureza cálcica se mide con kit de gotas (no con TDS); el TDS (3840 ppm) sirve para el factor TDS del LSI (12,29) y para la sal; CH 750 implica TA 70/pH 7,4.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 21,
+   "name": "redox-low-day",
+   "prompt": "El redox se queda en 610 mV de día con la célula al 100 % y de noche sube a 730. ¿Qué pasa?",
+   "expected_output": "Explica ORP día/noche (UV, CO2), consigna operativa vs objetivo, producción nocturna cortada si la consigna está bajo la meseta nocturna, propone comprobar DPD y la fracción de horas de sol.",
+   "files": [],
+   "assertions": []
+  },
+  {
+   "id": 22,
+   "name": "controller-in-smart",
+   "prompt": "¿Por qué estaba el controlador en Smart si el programador usa Auto?",
+   "expected_output": "Smart (3) aplica la reducción por temperatura 0x041B y rompe el determinismo; el propietario lo tocó en pantalla; restaurar Auto con NPFiltrationSpeed 2;NPFiltrationMode 1; watchdog/Rule1.",
+   "files": [],
+   "assertions": []
+  }
+ ]
+}

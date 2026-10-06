@@ -1,0 +1,82 @@
+[
+ {
+  "query": "revisa cómo va la piscina esta mañana y dime si tengo que hacer algo",
+  "should_trigger": true
+ },
+ {
+  "query": "acabo de medir 2.8 dkh con el salifert y 1.5ppm de cloro libre, que hago?",
+  "should_trigger": true
+ },
+ {
+  "query": "me ha llegado una notificación de HA: 'Piscina: bomba 3 h fuera del plan'. ¿es una falsa alarma?",
+  "should_trigger": true
+ },
+ {
+  "query": "el clorador marca LOW en la pantalla y el redox está en 590, investiga",
+  "should_trigger": true
+ },
+ {
+  "query": "añade al panel de la piscina una gráfica con los kWh de la depuradora por día",
+  "should_trigger": true
+ },
+ {
+  "query": "la bomba peristáltica del ácido gira pero el pH lleva dos días en 7.6, qué compruebo",
+  "should_trigger": true
+ },
+ {
+  "query": "quiero que el programador no arranque la bomba en punta los días laborables aunque haya sol, prepara el cambio en el paquete de HA",
+  "should_trigger": true
+ },
+ {
+  "query": "HA va lentísimo desde ayer y la Pi tarda en responder al ssh, mira qué pasa",
+  "should_trigger": true
+ },
+ {
+  "query": "AEMET ha puesto aviso naranja para el jueves en la Marina Alta, ¿vacío algo de agua de la piscina para aprovechar la lluvia?",
+  "should_trigger": true
+ },
+ {
+  "query": "he echado 2 kg de bicarbonato y medio kilo de CYA, actualiza el modelo en home assistant",
+  "should_trigger": true
+ },
+ {
+  "query": "la bomba de calor de casa hace un ruido raro al arrancar, ¿qué puede ser?",
+  "should_trigger": false
+ },
+ {
+  "query": "el Tesla no está cargando con el excedente solar aunque hay 3 kW de sobra, revisa la automatización de HA",
+  "should_trigger": false
+ },
+ {
+  "query": "mi suegra tiene una piscina de PVC desmontable de 8 m³ con cloro en pastillas, ¿cada cuánto cambia el agua?",
+  "should_trigger": false
+ },
+ {
+  "query": "añade una tarjeta al dashboard de energía de HA con el consumo del aire acondicionado por mes",
+  "should_trigger": false
+ },
+ {
+  "query": "explícame qué es el índice de Langelier y cómo se calcula en general",
+  "should_trigger": false
+ },
+ {
+  "query": "el poller de temperaturas del invernadero que corre en la otra Raspberry se ha parado, reinícialo",
+  "should_trigger": false
+ },
+ {
+  "query": "quiero montar un depósito de 5000 l de agua de lluvia para el riego del jardín, dame opciones",
+  "should_trigger": false
+ },
+ {
+  "query": "configura Tasmota en un Sonoff nuevo para la luz del garaje y súbelo al broker mosquitto de la Pi",
+  "should_trigger": false
+ },
+ {
+  "query": "cómo se calcula la dosis de hipoclorito para desinfectar el aljibe de agua potable de 2000 litros",
+  "should_trigger": false
+ },
+ {
+  "query": "escribe un script python que lea un CSV de medidas de pH de laboratorio y pinte la media mensual",
+  "should_trigger": false
+ }
+]
